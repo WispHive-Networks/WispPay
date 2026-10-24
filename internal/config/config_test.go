@@ -1,6 +1,10 @@
 package config
 
-import "testing"
+import (
+	"testing"
+
+	mysqldriver "github.com/go-sql-driver/mysql"
+)
 
 func TestLoadUsesDevelopmentDefaults(t *testing.T) {
 	t.Setenv("PORT", "")
@@ -43,5 +47,31 @@ func TestProductionRequiresDatabase(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected production without DATABASE_URL to be rejected")
+	}
+}
+
+func TestNormalizeDatabaseURLEnablesVerifiedTLS(t *testing.T) {
+	dsn, err := NormalizeDatabaseURL("mysql://user:p%40ss@db.example:3307/billing?ssl-mode=REQUIRED")
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := mysqldriver.ParseDSN(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed.User != "user" || parsed.Passwd != "p@ss" || parsed.Addr != "db.example:3307" || parsed.DBName != "billing" || parsed.TLSConfig != "true" || !parsed.ParseTime {
+		t.Fatalf("normalized DSN does not preserve required settings")
+	}
+}
+
+func TestNormalizeDatabaseURLRejectsInsecureOrUnsupportedURLs(t *testing.T) {
+	for _, value := range []string{
+		"mysql://user:pass@db.example/billing?ssl-mode=DISABLED",
+		"postgres://user:pass@db.example/billing",
+		"mysql://user:pass@db.example/billing?ssl-mode=REQUIRED&other=value",
+	} {
+		if _, err := NormalizeDatabaseURL(value); err == nil {
+			t.Fatalf("expected URL to be rejected: %q", value)
+		}
 	}
 }
