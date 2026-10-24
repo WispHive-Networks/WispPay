@@ -31,6 +31,7 @@ func TestConnectionErrorCategoryRecognizesCommonFailures(t *testing.T) {
 		{message: "dial tcp: lookup db on resolver: no such host", want: "database host could not be resolved"},
 		{message: "dial tcp: connect: connection refused", want: "database host refused the connection"},
 		{message: "dial tcp: i/o timeout", want: "database connection timed out"},
+		{message: "database server returned an invalid handshake", want: "database endpoint did not return a valid MySQL handshake"},
 		{message: "tls: failed to verify certificate: x509: certificate signed by unknown authority", want: "database TLS certificate authority is not trusted"},
 	} {
 		t.Run(test.want, func(t *testing.T) {
