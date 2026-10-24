@@ -21,7 +21,7 @@ async function request<T>(path: string, csrfToken: string, init: RequestInit = {
   if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   const response = await fetch(path, { ...init, headers, credentials: 'same-origin' });
   const result = response.status === 204 ? undefined : await response.json().catch(() => undefined);
-  if (!response.ok) throw new Error(result?.error ?? 'The request could not be completed.');
+if (!response.ok) throw new Error((result as { error?: string } | undefined)?.error ?? 'The request could not be completed.');
   return result as T;
 }
 
