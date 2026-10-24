@@ -1,6 +1,6 @@
 # WispPay
 
-WispPay is a Go-hosted invoicing and payment-link application. The repository is at the foundation stage: the Go server serves the compiled React application, provides liveness/readiness endpoints, and supports versioned MySQL migrations. Authentication, business workflows, invoices, payments, and AI drafting are not implemented yet; no simulated payments or sample business records are presented as real data.
+WispPay is a Go-hosted invoicing and payment-link application. The current increment serves the compiled React app from Go and implements business registration, sign-in, sign-out, and expiring server-side sessions with CSRF protection. Catalog, clients, invoices, payment workflows, and AI drafting are not implemented yet; no simulated payments or sample business records are presented as real data.
 
 ## Prerequisites
 
@@ -8,7 +8,7 @@ WispPay is a Go-hosted invoicing and payment-link application. The repository is
 - Node.js 22 or later and npm
 - A MySQL-compatible database for readiness and migrations
 
-Copy `.env.example` to `.env` and set the values in your shell or deployment environment. `DATABASE_URL` accepts either a Go MySQL driver DSN or a `mysql://` URI with `ssl-mode=REQUIRED`, `VERIFY_CA`, or `VERIFY_IDENTITY`. The app uses `cert/ca.pem` when present unless `DATABASE_CA_CERT` overrides it; TLS certificate verification remains enabled. Keep credentials out of source control.
+Copy `.env.example` to `.env` and set the values in your shell or deployment environment. Configure either `DATABASE_URL` (Go MySQL driver DSN or `mysql://` URI) or all of `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USER`, and `DATABASE_PASSWORD`. TLS certificate verification remains enabled. The app uses `cert/ca.pem` when present, otherwise `DATABASE_CA_CERT` or `SSL_CERT` may specify a CA file path. Keep credentials and certificates out of source control.
 
 ## Build and run
 
@@ -31,4 +31,4 @@ The Render build/start definition is in `render.yaml`. Configure `DATABASE_URL` 
 
 ## Current external integration status
 
-PayPal Sandbox, Aiven MySQL, and Gemma are not connected in this foundation build. No provider credentials or Aiven settings were present during implementation, so no Sandbox purchase, database migration against Aiven, Render deployment, or Gemma inference is claimed. Gemma API availability/model naming needs a verified hosted inference target; do not populate `GEMMA_MODEL` with an assumed identifier. See [the architecture and phase record](docs/architecture.md) for official sources, decisions, remaining acceptance criteria, and sponsor status.
+The additive identity migration is implemented but has not been applied: the configured database endpoint accepts TCP but did not return a valid MySQL handshake during the migration attempt. No schema changes were made by that attempt. PayPal Sandbox OAuth and Gemma inference were verified in an earlier local check, but no order, capture, webhook, or product-drafting workflow is implemented. No Render deployment or end-to-end customer payment is claimed. See [the architecture and phase record](docs/architecture.md) for remaining work and evidence.
