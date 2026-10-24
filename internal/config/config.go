@@ -3,7 +3,10 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
+
+	mysqldriver "github.com/go-sql-driver/mysql"
 )
 
 type Config struct {
@@ -19,16 +22,26 @@ func Load() (Config, error) {
 		DatabaseDSN: strings.TrimSpace(os.Getenv("DATABASE_URL")),
 	}
 	if cfg.Port == "" {
-		cfg.Port = "8080"
+		cfg.Port = "18080"
 	}
 	if cfg.Environment == "" {
 		cfg.Environment = "development"
 	}
-	if strings.ContainsAny(cfg.Port, ":/\\ \t\r\n") {
-		return Config{}, fmt.Errorf("PORT must contain only a port number")
+	if cfg.Environment == "production" && cfg.DatabaseDSN == "" {
+		return Config{}, fmt.Errorf("production DATABASE_URL is required")
 	}
-	if cfg.Environment == "production" && cfg.DatabaseDSN != "" && !strings.Contains(cfg.DatabaseDSN, "tls=") {
-		return Config{}, fmt.Errorf("production DATABASE_URL must enable MySQL TLS")
+	port, err := strconv.Atoi(cfg.Port)
+	if err != nil || port < 1 || port > 65535 {
+		return Config{}, fmt.Errorf("PORT must be a valid TCP port")
+	}
+	if cfg.Environment == "production" && cfg.DatabaseDSN != "" {
+		dsn, err := mysqldriver.ParseDSN(cfg.DatabaseDSN)
+		if err != nil {
+			return Config{}, fmt.Errorf("invalid DATABASE_URL")
+		}
+		if dsn.TLSConfig == "" || dsn.TLSConfig == "false" || dsn.TLSConfig == "skip-verify" || dsn.TLSConfig == "preferred" {
+			return Config{}, fmt.Errorf("production DATABASE_URL must enable verified MySQL TLS")
+		}
 	}
 	return cfg, nil
 }
