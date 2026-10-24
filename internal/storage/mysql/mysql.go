@@ -83,6 +83,9 @@ func safePingContext(ctx context.Context, ping func(context.Context) error) (err
 
 func ConnectionErrorCategory(err error) string {
 	message := strings.ToLower(err.Error())
+	if strings.Contains(message, "invalid handshake") {
+		return "database endpoint did not return a valid MySQL handshake"
+	}
 	var mysqlErr *mysqldriver.MySQLError
 	if errors.As(err, &mysqlErr) {
 		return fmt.Sprintf("mysql server rejected the connection (code %d)", mysqlErr.Number)
