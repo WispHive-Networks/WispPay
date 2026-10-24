@@ -1,6 +1,7 @@
 package mysql
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -10,6 +11,15 @@ func TestConnectionErrorCategoryDoesNotExposeRawError(t *testing.T) {
 	category := ConnectionErrorCategory(errors.New("dial failed for user:top-secret-password"))
 	if strings.Contains(category, "top-secret-password") || strings.Contains(category, "user:") {
 		t.Fatalf("raw connection details escaped: %q", category)
+	}
+}
+
+func TestSafePingContextConvertsHandshakePanicToError(t *testing.T) {
+	err := safePingContext(context.Background(), func(context.Context) error {
+		panic("malformed handshake")
+	})
+	if err == nil || err.Error() != "database server returned an invalid handshake" {
+		t.Fatalf("safe ping error = %v", err)
 	}
 }
 
