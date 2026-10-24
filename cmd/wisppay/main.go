@@ -19,6 +19,7 @@ import (
 
 func main() {
 	migrate := flag.Bool("migrate", false, "apply pending database migrations and exit")
+	checkDB := flag.Bool("check-db", false, "verify database connectivity and exit")
 	flag.Parse()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	cfg, err := config.Load()
@@ -29,12 +30,20 @@ func main() {
 
 	var db *mysqlstore.DB
 	if cfg.DatabaseDSN != "" {
-		db, err = mysqlstore.Open(cfg.DatabaseDSN)
+		db, err = mysqlstore.Open(cfg.DatabaseDSN, cfg.DatabaseCACert)
 		if err != nil {
-			logger.Error("database connection failed; check DATABASE_URL and database availability")
+			logger.Error("database connection failed", "reason", mysqlstore.ConnectionErrorCategory(err))
 			os.Exit(1)
 		}
 		defer db.Close()
+	}
+	if *checkDB {
+		if db == nil {
+			logger.Error("DATABASE_URL is required for database check")
+			os.Exit(1)
+		}
+		logger.Info("database connectivity verified")
+		return
 	}
 	if *migrate {
 		if db == nil {
