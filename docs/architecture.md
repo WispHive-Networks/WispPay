@@ -34,7 +34,7 @@ Versions were checked from public package metadata on 2026-10-24: Go MySQL drive
 - AG Grid lists Community as free; filtering, sorting and pagination needed here are available without Enterprise. This project uses Community-only features. Source: [licensing and feature comparison](https://www.ag-grid.com/license-pricing/).
 - Google Gemma docs point to downloaded model inference or Vertex AI deployment; current Gemini API examples identify Gemini models, not a hosted Gemma model. A Gemini API key alone is not evidence of Gemma API access, so the AI adapter/model choice is blocked pending a supported provider endpoint/model. Sources: [Gemma getting started](https://ai.google.dev/gemma/docs/get_started), [Gemini API](https://ai.google.dev/api).
 - Render's free web services spin down after 15 minutes idle, use ephemeral filesystems, and can be suspended under outbound usage limits. Free services are explicitly described as unsuitable for production. Aiven connectivity from a future Render region/plan cannot be confirmed without service metadata. Source: [Render free services](https://render.com/docs/free).
-- The APIMatic PayPal Context Plugin could not be verified or installed in this environment: no plugin/tool integration is exposed in the available workspace tools. No APIMatic usage is claimed.
+- The VS Code Marketplace was searched for `APIMatic PayPal Context Plugin`, `PayPal Context MCP`, and `APIMatic context plugin`; it returned no matching official extension. No APIMatic context tool is exposed in this session, so installation/use could not be verified and no APIMatic usage is claimed.
 
 ## Sponsor integration record
 
@@ -44,5 +44,5 @@ Versions were checked from public package metadata on 2026-10-24: Go MySQL drive
 | Aiven MySQL | Persistent tenant/invoice/payment storage | Driver selected; connection details absent, so not connected. |
 | AG Grid Community | Invoice/payment operations workspace | Free license and required basic features confirmed; operational data integration remains in a later phase. |
 | Gemma | Human-reviewed catalog/invoice drafting | No currently documented hosted API model established; not implemented until verified. |
-| APIMatic PayPal Context Plugin | Development-time integration guidance | Not available to install/use through this environment; no usage claimed. |
+| APIMatic PayPal Context Plugin | Development-time integration guidance | Marketplace search returned no matching official extension; no session tool exposed the plugin; no usage claimed. |
 | Render | Single Go web service deployment | Free-tier limitations reviewed; no account/deployment supplied, and free tier is not production-suitable. |
