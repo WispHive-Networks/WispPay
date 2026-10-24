@@ -1,0 +1,59 @@
+@import 'tailwindcss';
+
+:root {
+  font-family: 'Segoe UI', sans-serif;
+  color: #202a26;
+  background: #f5f4ef;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; min-width: 320px; min-height: 100vh; }
+
+.foundation-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0 clamp(22px, 7vw, 112px);
+  background: radial-gradient(ellipse at 78% 8%, #e4eee8 0, transparent 37%), #f5f4ef;
+}
+
+.topbar {
+  min-height: 78px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #d9ded8;
+}
+
+.wordmark { color: #173e36; font: 700 17px Georgia, serif; text-decoration: none; }
+.wordmark span, .environment-label, .eyebrow { color: #66736c; font: 600 10px 'Segoe UI', sans-serif; letter-spacing: 0; }
+.environment-label { padding: 7px 10px; border: 1px solid #c9d5cf; border-radius: 4px; }
+
+.intro { width: min(680px, 100%); padding: clamp(72px, 12vh, 128px) 0 54px; }
+.eyebrow { margin: 0 0 18px; color: #176b5b; }
+.intro h1 { margin: 0; max-width: 620px; color: #1e322c; font: 400 clamp(38px, 6vw, 64px)/1.08 Georgia, serif; }
+.intro-copy { max-width: 540px; margin: 22px 0 0; color: #53635c; font: 16px/1.65 'Segoe UI', sans-serif; }
+
+.auth-intro { padding-bottom: 48px; }
+.auth-form { display: grid; gap: 16px; width: min(420px, 100%); margin-top: 30px; }
+.auth-form button { min-height: 46px; }
+
+.status-panel { width: min(680px, 100%); border-top: 1px solid #bfcac3; }
+.status-panel h2 { margin: 22px 0 6px; color: #718078; font: 600 11px 'Segoe UI', sans-serif; text-transform: uppercase; }
+.status-row { min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid #d9ded8; color: #34443d; font: 14px 'Segoe UI', sans-serif; }
+.status-row strong { display: inline-flex; align-items: center; gap: 9px; color: #52635b; font-size: 12px; font-weight: 500; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: #a2aaa4; }
+.status-dot.online { background: #25866e; }
+.status-dot.waiting { background: #c28b3e; }
+
+footer { margin-top: auto; display: flex; gap: 14px; padding: 28px 0; color: #466258; font: 600 12px 'Segoe UI', sans-serif; }
+footer span { color: #7a8580; font-weight: 400; }
+
+@media (max-width: 480px) {
+  .wordmark span { display: block; margin-top: 3px; }
+  .status-row { align-items: flex-start; flex-direction: column; justify-content: center; gap: 5px; padding: 10px 0; }
+  footer { flex-direction: column; gap: 5px; }
+}
