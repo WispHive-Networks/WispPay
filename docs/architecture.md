@@ -2,7 +2,7 @@
 
 ## Repository baseline (2026-10-24)
 
-The repository contained only a one-line README and `.gitignore`; the latter had a pre-existing local edit and was left unchanged. Go 1.27.1, Node.js 22.23.3, and npm 10.9.9 are available. No `DATABASE_URL`, PayPal, Gemma, session, or public URL configuration variables are present. No MySQL client is installed. PayPal Sandbox and Google Generative Language HTTPS endpoints are reachable from this machine, but credentials are not available. Therefore neither Aiven connectivity nor provider credentials/API behavior can be validated against a real account yet.
+At the initial assessment, the repository contained only a one-line README and `.gitignore`; the latter had a pre-existing local edit and was left unchanged. Since then, the Go/React foundation, verified-TLS MySQL configuration, business registration/login, CSRF-protected server-side sessions, and additive identity migration have been implemented. PayPal Sandbox OAuth and a minimal Gemma inference request were verified locally, with secrets and response text suppressed. The configured database host currently accepts TCP but returns an invalid MySQL handshake; the identity migration has not been applied. No payment order/capture, live buyer checkout, Render deployment, or complete AI drafting workflow is claimed.
 
 ## Proposed architecture
 
@@ -19,8 +19,8 @@ Versions were checked from public package metadata on 2026-10-24: Go MySQL drive
 
 ## Phases and acceptance criteria
 
-1. **Foundation:** reproducible Go and web builds; single Go listener serves frontend and API; environment configuration; MySQL pool/TLS; health and database readiness; versioned migration runner; graceful shutdown and structured request logging. Acceptance: Go tests/build and npm build pass; health is live; readiness reports unavailable without a configured/reachable database; no secret is required to build.
-2. **Identity and workspace:** password hashing, server-side expiring sessions, CSRF, registration/login/logout, tenant-scoped catalog and clients. Acceptance: focused unit and MySQL isolation tests.
+1. **Foundation:** reproducible Go and web builds; single Go listener serves frontend and API; environment configuration; MySQL pool/TLS; health and database readiness; versioned migration runner; graceful shutdown and structured request logging. Go tests/build and npm typecheck/build pass. Database connectivity remains blocked by the invalid handshake response.
+2. **Identity and workspace:** PBKDF2 password hashing, server-side expiring sessions, CSRF, registration/login/logout, and initial business/user/session schema are implemented. The migration is pending database connectivity; catalog, clients, dashboard data, and MySQL isolation integration tests remain.
 3. **Invoices:** server-side decimal totals, persisted line snapshots, high-entropy hashed public links, public invoice page. Acceptance: calculation, authorization, token and integration tests.
 4. **PayPal Sandbox:** order creation, approval return, capture verification, signature-verified webhooks, idempotency and concurrency protection. Acceptance: deterministic provider tests plus an actual Sandbox buyer checkout before claiming completion.
 5. **Operations and AI:** AG Grid Community over API/database data; AI-assisted draft workflow only after provider/model availability and output schema are verified. Acceptance: frontend tests, actual database-backed grid, and evidence of genuine AI response.
@@ -40,9 +40,9 @@ Versions were checked from public package metadata on 2026-10-24: Go MySQL drive
 
 | Product | Intended use and benefit | Evidence / limitation |
 | --- | --- | --- |
-| PayPal Sandbox | Real hosted approval and server-verified payment | Official API behavior documented; credentials absent, so no live integration evidence yet. |
-| Aiven MySQL | Persistent tenant/invoice/payment storage | Driver selected; connection details absent, so not connected. |
+| PayPal Sandbox | Real hosted approval and server-verified payment | Sandbox OAuth was verified; no order, capture, webhook, or buyer checkout has been implemented or claimed. |
+| Aiven MySQL | Persistent tenant/invoice/payment storage | Split connection variables and CA path are configured. TCP is reachable, but the endpoint returns an invalid MySQL handshake; migration remains unapplied. |
 | AG Grid Community | Invoice/payment operations workspace | Free license and required basic features confirmed; operational data integration remains in a later phase. |
-| Gemma | Human-reviewed catalog/invoice drafting | No currently documented hosted API model established; not implemented until verified. |
+| Gemma | Human-reviewed catalog/invoice drafting | A minimal configured inference request succeeded; no validated draft workflow or persistence confirmation is implemented. |
 | APIMatic PayPal Context Plugin | Development-time integration guidance | Marketplace search returned no matching official extension; no session tool exposed the plugin; no usage claimed. |
 | Render | Single Go web service deployment | Free-tier limitations reviewed; no account/deployment supplied, and free tier is not production-suitable. |
