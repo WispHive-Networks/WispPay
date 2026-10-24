@@ -102,6 +102,19 @@ func TestLoadBuildsVerifiedTLSDSNFromDatabaseParts(t *testing.T) {
 	}
 }
 
+func TestSSLModeIsNotTreatedAsCACertificatePath(t *testing.T) {
+	clearDatabaseEnvironment(t)
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("SSL_CERT", "REQUIRED")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.DatabaseCACert == "REQUIRED" {
+		t.Fatal("SSL mode was incorrectly interpreted as a certificate path")
+	}
+}
+
 func TestNormalizeDatabaseURLRejectsInsecureOrUnsupportedURLs(t *testing.T) {
 	for _, value := range []string{
 		"mysql://user:pass@db.example/billing?ssl-mode=DISABLED",
