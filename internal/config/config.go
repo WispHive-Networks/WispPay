@@ -32,7 +32,7 @@ func Load() (Config, error) {
 	}
 	cfg := Config{
 		Port:           strings.TrimSpace(os.Getenv("PORT")),
-		Environment:    strings.TrimSpace(os.Getenv("APP_ENV")),
+		Environment:    strings.ToLower(strings.TrimSpace(os.Getenv("APP_ENV"))),
 		DatabaseDSN:    strings.TrimSpace(os.Getenv("DATABASE_URL")),
 		DatabaseCACert: strings.TrimSpace(os.Getenv("DATABASE_CA_CERT")),
 	}
