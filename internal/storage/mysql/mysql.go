@@ -58,7 +58,7 @@ func Open(dsn, caCertPath string) (*DB, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := db.PingContext(ctx); err != nil {
+	if err := safePingContext(ctx, db.PingContext); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("connect to MySQL: %w", err)
 	}
@@ -69,7 +69,16 @@ func (db *DB) Ready(ctx context.Context) error {
 	if db == nil || db.DB == nil {
 		return fmt.Errorf("database is not configured")
 	}
-	return db.PingContext(ctx)
+	return safePingContext(ctx, db.PingContext)
+}
+
+func safePingContext(ctx context.Context, ping func(context.Context) error) (err error) {
+	defer func() {
+		if recover() != nil {
+			err = fmt.Errorf("database server returned an invalid handshake")
+		}
+	}()
+	return ping(ctx)
 }
 
 func ConnectionErrorCategory(err error) string {
