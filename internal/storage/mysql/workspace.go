@@ -320,11 +320,11 @@ func (db *DB) CreateInvoice(ctx context.Context, businessID, clientID, publicBas
 		if err != nil {
 			return Invoice{}, ErrInvalidInvoice
 		}
-		lineTotal, err := billing.LineTotal(unitPrice, request.Quantity)
-		if err != nil || subtotal > billing.MaxMinorUnits-lineTotal {
+		lineTotal, nextSubtotal, err := billing.AddLine(subtotal, unitPrice, request.Quantity)
+		if err != nil {
 			return Invoice{}, ErrInvalidInvoice
 		}
-		subtotal += lineTotal
+		subtotal = nextSubtotal
 		itemID, err := randomID()
 		if err != nil {
 			return Invoice{}, err
@@ -427,9 +427,11 @@ func (db *DB) CreatePublicInvoiceLink(ctx context.Context, businessID, invoiceID
 		return "", fmt.Errorf("begin public link update: %w", err)
 	}
 	defer tx.Rollback()
-	var exists bool
-	if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM invoices WHERE business_id = ? AND id = ? FOR UPDATE)", businessID, invoiceID).Scan(&exists); err != nil || !exists {
+	var lockedInvoiceID string
+	if err := tx.QueryRowContext(ctx, "SELECT id FROM invoices WHERE business_id = ? AND id = ? FOR UPDATE", businessID, invoiceID).Scan(&lockedInvoiceID); errors.Is(err, sql.ErrNoRows) {
 		return "", ErrNotFound
+	} else if err != nil {
+		return "", fmt.Errorf("lock invoice for public link update: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE public_invoice_tokens SET revoked_at = UTC_TIMESTAMP()
 		WHERE business_id = ? AND invoice_id = ? AND revoked_at IS NULL`, businessID, invoiceID); err != nil {

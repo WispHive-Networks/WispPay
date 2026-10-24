@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -19,12 +20,24 @@ type readiness interface {
 	Ready(context.Context) error
 }
 
-func New(db readiness, assets http.FileSystem, logger *slog.Logger) http.Handler {
+func New(db readiness, assets http.FileSystem, logger *slog.Logger, paypalIntegrations ...PayPalIntegration) http.Handler {
+	if db != nil {
+		value := reflect.ValueOf(db)
+		if value.Kind() == reflect.Ptr && value.IsNil() {
+			db = nil
+		}
+	}
 	mux := http.NewServeMux()
 	identity, _ := db.(identityStore)
 	registerAuthRoutes(mux, identity)
 	workspace, _ := db.(workspaceStore)
 	registerWorkspaceRoutes(mux, workspace, os.Getenv("PUBLIC_BASE_URL"))
+	var paypalIntegration PayPalIntegration
+	if len(paypalIntegrations) > 0 {
+		paypalIntegration = paypalIntegrations[0]
+	}
+	paypalStore, _ := db.(paypalStore)
+	registerPayPalRoutes(mux, paypalIntegration.Client, paypalStore, identity, paypalIntegration.Settings)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})

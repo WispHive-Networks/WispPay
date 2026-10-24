@@ -2,6 +2,8 @@ package mysql
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"strings"
 	"testing"
@@ -39,5 +41,27 @@ func TestConnectionErrorCategoryRecognizesCommonFailures(t *testing.T) {
 				t.Fatalf("category = %q, want %q", got, test.want)
 			}
 		})
+	}
+}
+
+func TestPublicInvoiceTokenEncodingAndHashing(t *testing.T) {
+	first, err := randomTokenBytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := randomTokenBytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := hex.DecodeString(first)
+	if err != nil || len(decoded) != 32 {
+		t.Fatalf("token should encode 32 random bytes: length=%d err=%v", len(decoded), err)
+	}
+	if first == second {
+		t.Fatal("independent token generations returned the same value")
+	}
+	expectedHash := sha256.Sum256([]byte(first))
+	if hashToken(first) != hex.EncodeToString(expectedHash[:]) || hashToken(first) == first {
+		t.Fatal("token hash should be the stable SHA-256 digest, not the raw token")
 	}
 }

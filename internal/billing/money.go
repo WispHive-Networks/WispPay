@@ -66,6 +66,17 @@ func LineTotal(unitPrice int64, quantity int) (int64, error) {
 	return total, nil
 }
 
+func AddLine(subtotal, unitPrice int64, quantity int) (int64, int64, error) {
+	lineTotal, err := LineTotal(unitPrice, quantity)
+	if err != nil {
+		return 0, 0, err
+	}
+	if subtotal < 0 || subtotal > MaxMinorUnits-lineTotal {
+		return 0, 0, fmt.Errorf("invoice total exceeds supported precision")
+	}
+	return lineTotal, subtotal + lineTotal, nil
+}
+
 func digits(value string) bool {
 	if value == "" {
 		return false

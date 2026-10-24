@@ -115,6 +115,7 @@ export function WorkspacePage({ identity, csrfToken, onLogout }: { identity: Ide
         <p className="eyebrow">BUSINESS WORKSPACE</p>
         <h1>{identity.businessName}</h1>
       </section>
+      <PayPalConnectPanel csrfToken={csrfToken} />
       <nav className="workspace-nav" aria-label="Workspace sections">
         {(['catalog', 'clients', 'invoices'] as Section[]).map((item) => (
           <Button key={item} onClick={() => { setSection(item); setSelectedInvoice(null); setNotice(''); setError(''); }} variant={section === item ? 'contained' : 'text'}>
@@ -129,7 +130,7 @@ export function WorkspacePage({ identity, csrfToken, onLogout }: { identity: Ide
         {busy && <div className="loading-line"><CircularProgress size={18} /> Loading workspace</div>}
         {section === 'catalog' && <CatalogSection categories={categories} products={products} busy={busy} save={save} />}
         {section === 'clients' && <ClientsSection clients={clients} busy={busy} save={save} />}
-        {section === 'invoices' && <InvoicesSection clients={clients} products={products} invoices={invoices} selected={selectedInvoice} busy={busy} openInvoice={openInvoice} createLink={createLink} copyLink={copyLink} refresh={refresh} setNotice={setNotice} setError={setError} csrfToken={csrfToken} />}
+        {section === 'invoices' && <InvoicesSection clients={clients} products={products} invoices={invoices} selected={selectedInvoice} busy={busy} openInvoice={openInvoice} createLink={createLink} copyLink={copyLink} refresh={refresh} setNotice={setNotice} setError={setError} onLinkRevoked={() => setSelectedInvoice((current) => current ? { ...current, publicUrl: undefined } : current)} csrfToken={csrfToken} />}
       </div>
       <footer>WispPay <span>Secure invoicing and payment links</span></footer>
     </main>
@@ -225,9 +226,9 @@ function ClientsSection({ clients, busy, save }: { clients: Client[]; busy: bool
   </>;
 }
 
-function InvoicesSection({ clients, products, invoices, selected, busy, openInvoice, createLink, copyLink, refresh, setNotice, setError, csrfToken }: {
+function InvoicesSection({ clients, products, invoices, selected, busy, openInvoice, createLink, copyLink, refresh, setNotice, setError, onLinkRevoked, csrfToken }: {
   clients: Client[]; products: Product[]; invoices: Invoice[]; selected: Invoice | null; busy: boolean;
-  openInvoice: (invoice: Invoice) => Promise<void>; createLink: (invoice: Invoice) => Promise<void>;
+  openInvoice: (invoice: Invoice) => Promise<void>; createLink: (invoice: Invoice) => Promise<void>; onLinkRevoked: () => void;
   copyLink: (url: string) => Promise<void>; refresh: () => Promise<void>; setNotice: (notice: string) => void; setError: (error: string) => void; csrfToken: string;
 }) {
   const [clientId, setClientId] = useState('');
@@ -250,6 +251,7 @@ function InvoicesSection({ clients, products, invoices, selected, busy, openInvo
     try {
       await request(`/api/invoices/${selected.id}/public-link`, csrfToken, { method: 'DELETE' });
       setNotice('Public invoice link revoked.');
+      onLinkRevoked();
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Link could not be revoked.'); }
   }
 
@@ -280,20 +282,117 @@ function ItemRows({ items, currency }: { items: InvoiceItem[]; currency: string 
   return <div className="record-list invoice-items">{items.map((item, index) => <div className="record-row" key={`${item.productId ?? item.productName}-${index}`}><div><strong>{item.productName}</strong><span>{item.description}</span></div><span>{item.quantity} × {currency} {item.unitPrice}</span><strong>{currency} {item.lineTotal}</strong></div>)}</div>;
 }
 
+function PayPalConnectPanel({ csrfToken }: { csrfToken: string }) {
+  const [status, setStatus] = useState('loading');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function refresh() {
+    try {
+      const result = await request<{ status: string; eligible: boolean }>('/api/paypal/seller', csrfToken);
+      setStatus(result.eligible ? 'active' : result.status);
+    } catch (cause) {
+      setStatus('unavailable');
+      setError(cause instanceof Error ? cause.message : 'PayPal connection status could not be loaded.');
+    }
+  }
+
+  useEffect(() => { void refresh(); }, [csrfToken]);
+
+  async function connect() {
+    setBusy(true);
+    setError('');
+    try {
+      const result = await request<{ url: string }>('/api/paypal/seller/onboarding', csrfToken, { method: 'POST', body: '{}' });
+      window.location.assign(result.url);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'PayPal connection could not be started.');
+      setBusy(false);
+    }
+  }
+
+  return <section className="workspace-section payment-connection" aria-labelledby="paypal-connection-title">
+    <div className="section-title"><div><p className="eyebrow">CONNECTED SELLER</p><h2 id="paypal-connection-title">PayPal payments</h2></div>
+      {status === 'active' ? <span className="status-text">Connected and eligible</span> : status === 'pending' ? <span className="status-text">Setup incomplete</span> : null}
+    </div>
+    {error && <Alert severity={status === 'unavailable' ? 'info' : 'error'} onClose={() => setError('')}>{status === 'unavailable' ? 'PayPal seller payments are not configured for this deployment.' : error}</Alert>}
+    {status === 'active' ? <p className="empty-state">Your business receives invoice payments through its connected PayPal account.</p> : status === 'unavailable' ? null : <>
+      {status === 'pending' && <p className="empty-state">PayPal has not confirmed all permissions and payment eligibility. Complete setup or reconnect to check again.</p>}
+      <Button variant="outlined" onClick={() => void connect()} disabled={busy || status === 'loading'}>{busy ? 'Connecting…' : status === 'pending' ? 'Continue PayPal setup' : 'Connect PayPal'}</Button>
+    </>}
+  </section>;
+}
+
 export function PublicInvoicePage() {
   const { token = '' } = useParams();
   const [invoice, setInvoice] = useState<PublicInvoice | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [paymentAvailable, setPaymentAvailable] = useState(false);
+  const [paymentBusy, setPaymentBusy] = useState(false);
+  const [paymentMessage, setPaymentMessage] = useState('');
   useEffect(() => {
     let active = true;
-    request<PublicInvoice>(`/api/public/invoices/${encodeURIComponent(token)}`, '').then((result) => {
-      if (active) setInvoice(result);
-    }).catch((cause) => {
-      if (active) setError(cause instanceof Error ? cause.message : 'Invoice link is unavailable.');
-    }).finally(() => { if (active) setLoading(false); });
+    async function load() {
+      const query = new URLSearchParams(window.location.search);
+      const orderId = query.get('token') ?? '';
+      const returnedFromApproval = query.get('payment') === 'approved' && orderId !== '';
+      if (returnedFromApproval) {
+        setPaymentBusy(true);
+        setPaymentMessage('Confirming payment with PayPal…');
+        try {
+          await request(`/api/public/invoices/${encodeURIComponent(token)}/paypal/capture`, '', {
+            method: 'POST', body: JSON.stringify({ orderId }),
+          });
+          if (active) setPaymentMessage('Payment completed.');
+        } catch (cause) {
+          if (active) setPaymentMessage(cause instanceof Error ? cause.message : 'Payment could not be confirmed.');
+        } finally {
+          if (active) {
+            setPaymentBusy(false);
+            window.history.replaceState({}, '', window.location.pathname);
+          }
+        }
+      } else if (query.get('payment') === 'cancelled' && active) {
+        setPaymentMessage('PayPal checkout was cancelled. No payment was recorded.');
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+      try {
+        const result = await request<PublicInvoice>(`/api/public/invoices/${encodeURIComponent(token)}`, '');
+        if (active) setInvoice(result);
+      } catch (cause) {
+        if (active) {
+          setError(cause instanceof Error ? cause.message : 'Invoice link is unavailable.');
+          setLoading(false);
+        }
+        return;
+      }
+      try {
+        const capability = await request<{ available: boolean }>(`/api/public/invoices/${encodeURIComponent(token)}/paypal`, '');
+        if (active) setPaymentAvailable(capability.available);
+      } catch {
+        if (active) setPaymentAvailable(false);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    void load();
     return () => { active = false; };
   }, [token]);
+
+  async function startPayment() {
+    setPaymentBusy(true);
+    setPaymentMessage('');
+    try {
+      const result = await request<{ orderId: string; approvalUrl: string }>(`/api/public/invoices/${encodeURIComponent(token)}/paypal/orders`, '', {
+        method: 'POST', body: '{}',
+      });
+      window.location.assign(result.approvalUrl);
+    } catch (cause) {
+      setPaymentMessage(cause instanceof Error ? cause.message : 'PayPal checkout could not be started.');
+      setPaymentBusy(false);
+    }
+  }
 
   return <main className="workspace-page public-page">
     <header className="topbar"><a className="wordmark" href="/">WispPay<span> / INVOICE</span></a></header>
@@ -303,7 +402,9 @@ export function PublicInvoicePage() {
         <div className="section-title"><div><h1>{invoice.reference}</h1><p className="intro-copy">Issued {new Date(invoice.createdAt).toLocaleDateString()}</p></div><span className="status-text">{invoice.status}</span></div>
         <ItemRows items={invoice.items} currency={invoice.currency} />
         <div className="public-total"><span>Total due</span><strong>{invoice.currency} {invoice.total}</strong></div>
-        <Alert severity="info">Online payment is not available yet. Contact the business directly to arrange payment.</Alert>
+        {paymentMessage && <Alert severity={paymentMessage.includes('completed') ? 'success' : paymentMessage.includes('Confirming') ? 'info' : 'warning'}>{paymentMessage}</Alert>}
+        {paymentAvailable && invoice.status === 'open' && <Button variant="contained" onClick={() => void startPayment()} disabled={paymentBusy}>{paymentBusy ? <CircularProgress size={18} color="inherit" /> : 'Pay with PayPal'}</Button>}
+        {!paymentAvailable && invoice.status === 'open' && <Alert severity="info">Online payment is unavailable for this invoice. Contact the business directly to arrange payment.</Alert>}
         <p className="expiry-note">This invoice link expires {new Date(invoice.expiresAt).toLocaleDateString()}.</p>
       </>}
     </section>

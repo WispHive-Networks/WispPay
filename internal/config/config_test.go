@@ -1,13 +1,13 @@
 package config
 
 import (
+	"path/filepath"
 	"testing"
-
-	mysqldriver "github.com/go-sql-driver/mysql"
 )
 
 func TestLoadUsesDevelopmentDefaults(t *testing.T) {
 	clearDatabaseEnvironment(t)
+	clearPayPalEnvironment(t)
 	t.Setenv("PORT", "")
 	t.Setenv("APP_ENV", "")
 	t.Setenv("DATABASE_URL", "")
@@ -16,12 +16,13 @@ func TestLoadUsesDevelopmentDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Port != "18080" || cfg.Environment != "development" || cfg.DatabaseDSN != "" {
+	if cfg.Port != "18080" || cfg.Environment != "development" || cfg.SQLitePath != filepath.Join("data", "wisppay.db") {
 		t.Fatalf("unexpected defaults: %+v", cfg)
 	}
 }
 
 func TestLoadRejectsAddressInPort(t *testing.T) {
+	clearPayPalEnvironment(t)
 	t.Setenv("PORT", "127.0.0.1:8080")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected invalid PORT to be rejected")
@@ -29,27 +30,25 @@ func TestLoadRejectsAddressInPort(t *testing.T) {
 }
 
 func TestLoadRejectsOutOfRangePort(t *testing.T) {
+	clearPayPalEnvironment(t)
 	t.Setenv("PORT", "65536")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected out-of-range PORT to be rejected")
 	}
 }
 
-func TestProductionRequiresVerifiedDatabaseTLS(t *testing.T) {
+func TestProductionUsesLocalSQLiteAndIgnoresRemoteDatabaseEnvironment(t *testing.T) {
 	clearDatabaseEnvironment(t)
+	clearPayPalEnvironment(t)
 	t.Setenv("APP_ENV", "production")
-	t.Setenv("DATABASE_URL", "user:pass@tcp(db.example:3306)/wisppay?tls=false")
-	if _, err := Load(); err == nil {
-		t.Fatal("expected production MySQL without verified TLS to be rejected")
+	t.Setenv("DATABASE_URL", "mysql://remote.example/wisppay")
+	setDatabasePartsEnvironment(t)
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
 	}
-}
-
-func TestProductionRequiresDatabase(t *testing.T) {
-	clearDatabaseEnvironment(t)
-	t.Setenv("APP_ENV", "production")
-	t.Setenv("DATABASE_URL", "")
-	if _, err := Load(); err == nil {
-		t.Fatal("expected production without DATABASE_URL to be rejected")
+	if cfg.SQLitePath != filepath.Join("data", "wisppay.db") {
+		t.Fatalf("remote database settings affected SQLite path: %q", cfg.SQLitePath)
 	}
 }
 
@@ -63,66 +62,83 @@ func clearDatabaseEnvironment(t *testing.T) {
 	}
 }
 
-func TestNormalizeDatabaseURLEnablesVerifiedTLS(t *testing.T) {
-	dsn, err := NormalizeDatabaseURL("mysql://user:p%40ss@db.example:3307/billing?ssl-mode=REQUIRED")
-	if err != nil {
-		t.Fatal(err)
-	}
-	parsed, err := mysqldriver.ParseDSN(dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if parsed.User != "user" || parsed.Passwd != "p@ss" || parsed.Addr != "db.example:3307" || parsed.DBName != "billing" || parsed.TLSConfig != "true" || !parsed.ParseTime {
-		t.Fatalf("normalized DSN does not preserve required settings")
+func clearPayPalEnvironment(t *testing.T) {
+	t.Helper()
+	for _, name := range []string{"PAYPAL_CLIENT_ID", "PAYPAL_CLIENT_SECRET", "PAYPAL_BASE_URL", "PAYPAL_PARTNER_MERCHANT_ID", "PAYPAL_PARTNER_ATTRIBUTION_ID", "PAYPAL_WEBHOOK_ID"} {
+		t.Setenv(name, "")
 	}
 }
 
-func TestLoadBuildsVerifiedTLSDSNFromDatabaseParts(t *testing.T) {
-	t.Setenv("APP_ENV", "development")
-	t.Setenv("DATABASE_URL", "")
-	t.Setenv("DATABASE_HOST", "mysql.example.com")
-	t.Setenv("DATABASE_PORT", "24718")
-	t.Setenv("DATABASE_NAME", "billing")
-	t.Setenv("DATABASE_USER", "app-user")
-	t.Setenv("DATABASE_PASSWORD", "not-a-real-secret")
-	for _, name := range []string{"DATABASE_CA_CERT", "SSL_CERT"} {
-		t.Setenv(name, "")
+func TestPayPalSandboxCanBeEnabledWithCompleteCredentials(t *testing.T) {
+	clearDatabaseEnvironment(t)
+	clearPayPalEnvironment(t)
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("PAYPAL_CLIENT_ID", "client-id")
+	t.Setenv("PAYPAL_CLIENT_SECRET", "client-secret")
+	t.Setenv("PAYPAL_BASE_URL", "https://api-m.sandbox.paypal.com")
+	t.Setenv("PAYPAL_PARTNER_MERCHANT_ID", "partner-merchant")
+	t.Setenv("PAYPAL_PARTNER_ATTRIBUTION_ID", "partner-attribution")
+	t.Setenv("PAYPAL_WEBHOOK_ID", "webhook-id")
+	t.Setenv("PUBLIC_BASE_URL", "https://wisppay.example")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
 	}
+	if !cfg.PayPalEnabled || cfg.PayPalBaseURL != "https://api-m.sandbox.paypal.com" {
+		t.Fatalf("sandbox PayPal config = %+v", cfg)
+	}
+}
+
+func TestPayPalRemainsDisabledWithoutPartnerConfiguration(t *testing.T) {
+	clearDatabaseEnvironment(t)
+	clearPayPalEnvironment(t)
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("PAYPAL_CLIENT_ID", "client-id")
+	t.Setenv("PAYPAL_CLIENT_SECRET", "client-secret")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.PayPalEnabled {
+		t.Fatal("PayPal enabled without the connected-seller partner settings")
+	}
+}
+
+func TestLoadUsesConfiguredSQLitePath(t *testing.T) {
+	clearPayPalEnvironment(t)
+	t.Setenv("APP_ENV", "development")
+	clearDatabaseEnvironment(t)
+	t.Setenv("SQLITE_PATH", "tmp/demo.db")
 
 	cfg, err := Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsed, err := mysqldriver.ParseDSN(cfg.DatabaseDSN)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if parsed.Addr != "mysql.example.com:24718" || parsed.DBName != "billing" || parsed.User != "app-user" || parsed.TLSConfig != "true" || !parsed.ParseTime {
-		t.Fatal("split database configuration did not produce the expected verified-TLS DSN")
+	if cfg.SQLitePath != "tmp/demo.db" {
+		t.Fatalf("SQLite path = %q, want tmp/demo.db", cfg.SQLitePath)
 	}
 }
 
-func TestSSLModeIsNotTreatedAsCACertificatePath(t *testing.T) {
+func TestLegacyDatabaseVariablesAreIgnored(t *testing.T) {
 	clearDatabaseEnvironment(t)
+	clearPayPalEnvironment(t)
 	t.Setenv("APP_ENV", "development")
+	setDatabasePartsEnvironment(t)
 	t.Setenv("SSL_CERT", "REQUIRED")
 	cfg, err := Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.DatabaseCACert == "REQUIRED" {
-		t.Fatal("SSL mode was incorrectly interpreted as a certificate path")
+	if cfg.SQLitePath != filepath.Join("data", "wisppay.db") {
+		t.Fatalf("legacy database settings affected SQLite path: %q", cfg.SQLitePath)
 	}
 }
 
-func TestNormalizeDatabaseURLRejectsInsecureOrUnsupportedURLs(t *testing.T) {
-	for _, value := range []string{
-		"mysql://user:pass@db.example/billing?ssl-mode=DISABLED",
-		"postgres://user:pass@db.example/billing",
-		"mysql://user:pass@db.example/billing?ssl-mode=REQUIRED&other=value",
-	} {
-		if _, err := NormalizeDatabaseURL(value); err == nil {
-			t.Fatalf("expected URL to be rejected: %q", value)
-		}
-	}
+func setDatabasePartsEnvironment(t *testing.T) {
+	t.Helper()
+	t.Setenv("DATABASE_HOST", "mysql.example.com")
+	t.Setenv("DATABASE_PORT", "24718")
+	t.Setenv("DATABASE_NAME", "billing")
+	t.Setenv("DATABASE_USER", "app-user")
+	t.Setenv("DATABASE_PASSWORD", "not-a-real-secret")
 }

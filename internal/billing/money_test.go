@@ -52,3 +52,17 @@ func TestValidateCurrencyRequiresUppercaseThreeLetterCode(t *testing.T) {
 		}
 	}
 }
+
+func TestAddLineAccumulatesExactInvoiceTotal(t *testing.T) {
+	firstLine, subtotal, err := AddLine(0, 125, 3)
+	if err != nil || firstLine != 375 || subtotal != 375 {
+		t.Fatalf("first AddLine = (%d, %d, %v)", firstLine, subtotal, err)
+	}
+	secondLine, subtotal, err := AddLine(subtotal, 990, 2)
+	if err != nil || secondLine != 1980 || subtotal != 2355 || FormatMoney(subtotal) != "23.55" {
+		t.Fatalf("second AddLine = (%d, %d, %v)", secondLine, subtotal, err)
+	}
+	if _, _, err := AddLine(MaxMinorUnits, 1, 1); err == nil {
+		t.Fatal("expected aggregate overflow to fail")
+	}
+}
