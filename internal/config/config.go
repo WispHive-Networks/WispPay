@@ -37,6 +37,9 @@ func Load() (Config, error) {
 		DatabaseCACert: strings.TrimSpace(os.Getenv("DATABASE_CA_CERT")),
 	}
 	if cfg.DatabaseCACert == "" {
+		cfg.DatabaseCACert = strings.TrimSpace(os.Getenv("SSL_CERT"))
+	}
+	if cfg.DatabaseCACert == "" {
 		defaultCACert := filepath.Join("cert", "ca.pem")
 		if info, err := os.Stat(defaultCACert); err == nil && info.Mode().IsRegular() {
 			cfg.DatabaseCACert = defaultCACert
@@ -44,7 +47,14 @@ func Load() (Config, error) {
 			return Config{}, fmt.Errorf("check default database CA certificate")
 		}
 	}
-	if cfg.DatabaseDSN != "" {
+	databaseHost := strings.TrimSpace(os.Getenv("DATABASE_HOST"))
+	if databaseHost != "" {
+		dsn, err := databaseDSNFromParts(databaseHost, os.Getenv("DATABASE_PORT"), os.Getenv("DATABASE_NAME"), os.Getenv("DATABASE_USER"), os.Getenv("DATABASE_PASSWORD"))
+		if err != nil {
+			return Config{}, err
+		}
+		cfg.DatabaseDSN = dsn
+	} else if cfg.DatabaseDSN != "" {
 		dsn, err := NormalizeDatabaseURL(cfg.DatabaseDSN)
 		if err != nil {
 			return Config{}, err
@@ -74,6 +84,28 @@ func Load() (Config, error) {
 		}
 	}
 	return cfg, nil
+}
+
+func databaseDSNFromParts(host, port, name, user, password string) (string, error) {
+	port = strings.TrimSpace(port)
+	name = strings.TrimSpace(name)
+	user = strings.TrimSpace(user)
+	if strings.ContainsAny(host, "/?#@ \t\r\n") || name == "" || user == "" || password == "" {
+		return "", fmt.Errorf("DATABASE_HOST, DATABASE_PORT, DATABASE_NAME, DATABASE_USER, and DATABASE_PASSWORD must be configured")
+	}
+	portNumber, err := strconv.Atoi(port)
+	if err != nil || portNumber < 1 || portNumber > 65535 {
+		return "", fmt.Errorf("DATABASE_PORT must be a valid TCP port")
+	}
+	config := mysqldriver.NewConfig()
+	config.User = user
+	config.Passwd = password
+	config.Net = "tcp"
+	config.Addr = net.JoinHostPort(host, port)
+	config.DBName = name
+	config.ParseTime = true
+	config.TLSConfig = "true"
+	return config.FormatDSN(), nil
 }
 
 func NormalizeDatabaseURL(value string) (string, error) {
