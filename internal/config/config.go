@@ -37,9 +37,6 @@ func Load() (Config, error) {
 		DatabaseCACert: strings.TrimSpace(os.Getenv("DATABASE_CA_CERT")),
 	}
 	if cfg.DatabaseCACert == "" {
-		cfg.DatabaseCACert = strings.TrimSpace(os.Getenv("SSL_CERT"))
-	}
-	if cfg.DatabaseCACert == "" {
 		defaultCACert := filepath.Join("cert", "ca.pem")
 		if info, err := os.Stat(defaultCACert); err == nil && info.Mode().IsRegular() {
 			cfg.DatabaseCACert = defaultCACert
