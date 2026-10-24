@@ -7,6 +7,8 @@ yarn-error.log*
 lerna-debug.log*
 .vscode
 .env
+/data
+.db
 /cert
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
