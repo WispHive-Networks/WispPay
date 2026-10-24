@@ -38,12 +38,25 @@ func Migrate(ctx context.Context, db *sql.DB) error {
 		if err != nil {
 			return fmt.Errorf("read migration %s: %w", version, err)
 		}
-		if _, err := db.ExecContext(ctx, string(statement)); err != nil {
-			return fmt.Errorf("apply migration %s: %w", version, err)
+		for _, query := range splitMigrationStatements(string(statement)) {
+			if _, err := db.ExecContext(ctx, query); err != nil {
+				return fmt.Errorf("apply migration %s: %w", version, err)
+			}
 		}
 		if _, err := db.ExecContext(ctx, "INSERT INTO schema_migrations (version) VALUES (?)", version); err != nil {
 			return fmt.Errorf("record migration %s: %w", version, err)
 		}
 	}
 	return nil
+}
+
+func splitMigrationStatements(contents string) []string {
+	parts := strings.Split(contents, ";")
+	statements := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if statement := strings.TrimSpace(part); statement != "" {
+			statements = append(statements, statement)
+		}
+	}
+	return statements
 }
