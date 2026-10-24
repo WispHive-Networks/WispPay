@@ -41,6 +41,52 @@ body { margin: 0; min-width: 320px; min-height: 100vh; }
 .auth-form { display: grid; gap: 16px; width: min(420px, 100%); margin-top: 30px; }
 .auth-form button { min-height: 46px; }
 
+.workspace-page { min-height: 100vh; display: flex; flex-direction: column; padding: 0 clamp(20px, 6vw, 88px); background: radial-gradient(ellipse at 86% 0%, #e3ede7 0, transparent 34%), #f5f4ef; }
+.workspace-page .topbar { gap: 20px; }
+.account-menu { display: flex; align-items: center; gap: 16px; color: #53635c; font: 13px 'Segoe UI', sans-serif; }
+.workspace-heading { padding: 38px 0 20px; }
+.workspace-heading .eyebrow { margin-bottom: 8px; }
+.workspace-heading h1 { margin: 0; color: #1e322c; font: 400 36px/1.15 Georgia, serif; }
+.workspace-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 0 18px; border-bottom: 1px solid #c9d2cc; }
+.workspace-content { width: min(100%, 1020px); display: grid; gap: 26px; padding: 24px 0 32px; }
+.workspace-content > .MuiAlert-root { margin-bottom: 0; }
+.workspace-section { padding: 22px 0; border-bottom: 1px solid #d3dbd5; }
+.section-title { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
+.section-title h2, .section-title h1 { margin: 0; color: #1e322c; font: 400 28px/1.15 Georgia, serif; }
+.section-title .eyebrow { margin: 0 0 6px; }
+.data-form { display: grid; gap: 14px; width: min(560px, 100%); }
+.inline-form { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.inline-form .MuiTextField-root { min-width: min(100%, 270px); }
+.form-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(100px, .45fr); gap: 12px; }
+.form-actions, .link-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.record-list { border-top: 1px solid #d8ded9; }
+.record-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px 18px; min-height: 58px; padding: 10px 2px; border-bottom: 1px solid #d8ded9; color: #34443d; font: 13px 'Segoe UI', sans-serif; }
+.record-row > div { display: grid; gap: 4px; min-width: 0; }
+.record-row strong { color: #273a33; font-size: 13px; font-weight: 600; }
+.record-row span { color: #748078; overflow-wrap: anywhere; }
+.product-row, .invoice-row { grid-template-columns: minmax(180px, 1fr) auto auto auto; }
+.list-heading { margin: 26px 0 10px; color: #718078; font: 600 11px 'Segoe UI', sans-serif; text-transform: uppercase; }
+.empty-state { color: #66736c; font: 14px/1.6 'Segoe UI', sans-serif; }
+.loading-line { display: flex; align-items: center; gap: 10px; padding: 10px 0; color: #53635c; font: 13px 'Segoe UI', sans-serif; }
+.invoice-product-picks { display: grid; gap: 5px; }
+.pick-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 5px 0; border-bottom: 1px solid #e0e4e0; }
+.pick-row .MuiTextField-root { width: 88px; }
+.pick-row .MuiFormControlLabel-root { min-width: 0; }
+.pick-row .MuiFormControlLabel-label { overflow-wrap: anywhere; color: #34443d; font-size: 13px; }
+.status-text { text-transform: capitalize; color: #477263 !important; }
+.invoice-summary { display: flex; flex-wrap: wrap; gap: 28px; margin: 12px 0 18px; color: #748078; font: 12px 'Segoe UI', sans-serif; }
+.invoice-summary span { display: grid; gap: 5px; }
+.invoice-summary strong { color: #273a33; font-size: 14px; }
+.invoice-items { margin: 12px 0 20px; }
+.invoice-items .record-row { grid-template-columns: minmax(0, 1fr) auto auto; }
+.link-actions { margin-top: 18px; }
+.public-page { width: min(100%, 1024px); margin: 0 auto; }
+.public-invoice { width: min(100%, 760px); margin: 54px 0; padding: 26px 0; }
+.public-invoice h1 { font-size: 34px; }
+.public-total { display: flex; justify-content: space-between; align-items: baseline; margin: 24px 0; padding-top: 16px; border-top: 1px solid #bfcac3; color: #53635c; font: 14px 'Segoe UI', sans-serif; }
+.public-total strong { color: #173e36; font: 600 24px Georgia, serif; }
+.expiry-note { margin-top: 14px; color: #718078; font: 12px 'Segoe UI', sans-serif; }
+
 .status-panel { width: min(680px, 100%); border-top: 1px solid #bfcac3; }
 .status-panel h2 { margin: 22px 0 6px; color: #718078; font: 600 11px 'Segoe UI', sans-serif; text-transform: uppercase; }
 .status-row { min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid #d9ded8; color: #34443d; font: 14px 'Segoe UI', sans-serif; }
@@ -56,4 +102,14 @@ footer span { color: #7a8580; font-weight: 400; }
   .wordmark span { display: block; margin-top: 3px; }
   .status-row { align-items: flex-start; flex-direction: column; justify-content: center; gap: 5px; padding: 10px 0; }
   footer { flex-direction: column; gap: 5px; }
+  .account-menu { gap: 8px; }
+  .account-menu > span { display: none; }
+  .workspace-heading h1 { font-size: 30px; }
+  .workspace-nav { gap: 2px; }
+  .product-row, .invoice-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .product-row > span, .invoice-row > span { grid-column: 1; }
+  .record-row > button { grid-column: 2; grid-row: 1 / span 2; }
+  .invoice-items .record-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .invoice-items .record-row > strong { grid-column: 2; }
+  .public-invoice { margin: 28px 0; }
 }

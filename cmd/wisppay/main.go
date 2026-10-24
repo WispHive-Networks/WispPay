@@ -13,12 +13,12 @@ import (
 
 	"github.com/WispHive-Networks/WispPay/internal/config"
 	"github.com/WispHive-Networks/WispPay/internal/httpapi"
-	mysqlstore "github.com/WispHive-Networks/WispPay/internal/storage/mysql"
+	"github.com/WispHive-Networks/WispPay/internal/paypal"
+	sqlitestore "github.com/WispHive-Networks/WispPay/internal/storage/sqlite"
 	"github.com/WispHive-Networks/WispPay/web"
 )
 
 func main() {
-	migrate := flag.Bool("migrate", false, "apply pending database migrations and exit")
 	checkDB := flag.Bool("check-db", false, "verify database connectivity and exit")
 	flag.Parse()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -28,39 +28,40 @@ func main() {
 		os.Exit(1)
 	}
 
-	var db *mysqlstore.DB
-	if cfg.DatabaseDSN != "" {
-		db, err = mysqlstore.Open(cfg.DatabaseDSN, cfg.DatabaseCACert)
-		if err != nil {
-			logger.Error("database connection failed", "reason", mysqlstore.ConnectionErrorCategory(err))
-			os.Exit(1)
-		}
-		defer db.Close()
+	db, err := sqlitestore.Open(cfg.SQLitePath)
+	if err != nil {
+		logger.Error("SQLite database initialization failed", "error", err)
+		os.Exit(1)
 	}
+	defer db.Close()
 	if *checkDB {
-		if db == nil {
-			logger.Error("DATABASE_URL is required for database check")
-			os.Exit(1)
-		}
 		logger.Info("database connectivity verified")
 		return
 	}
-	if *migrate {
-		if db == nil {
-			logger.Error("DATABASE_URL is required for migrations")
+	var paypalIntegration httpapi.PayPalIntegration
+	if cfg.PayPalEnabled {
+		client, err := paypal.NewClient(cfg.PayPalClientID, cfg.PayPalClientSecret, cfg.PayPalBaseURL, nil)
+		if err != nil {
+			logger.Error("PayPal client initialization failed", "error", err)
 			os.Exit(1)
 		}
-		if err := mysqlstore.Migrate(context.Background(), db.DB); err != nil {
-			logger.Error("database migration failed", "error", err)
-			os.Exit(1)
+		paypalIntegration = httpapi.PayPalIntegration{
+			Client: client,
+			Settings: httpapi.PayPalSettings{
+				Enabled:           true,
+				PartnerMerchantID: cfg.PayPalPartnerID,
+				AttributionID:     cfg.PayPalAttributionID,
+				WebhookID:         cfg.PayPalWebhookID,
+				PublicBaseURL:     cfg.PublicBaseURL,
+			},
 		}
-		logger.Info("database migrations complete")
-		return
+	} else {
+		logger.Info("PayPal Sandbox is disabled; configure client credentials, partner IDs, and public origin to enable it")
 	}
 
 	server := &http.Server{
 		Addr:              "0.0.0.0:" + cfg.Port,
-		Handler:           httpapi.New(db, web.Files, logger),
+		Handler:           httpapi.New(db, web.Files, logger, paypalIntegration),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,

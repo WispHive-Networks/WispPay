@@ -2,6 +2,7 @@ import { Alert, Button, CircularProgress, CssBaseline, TextField, ThemeProvider,
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Link, Route, Routes } from 'react-router';
 import { FormEvent, useEffect, useState } from 'react';
+import { PublicInvoicePage, WorkspacePage } from './workspace';
 import './styles.css';
 
 const theme = createTheme({
@@ -85,25 +86,15 @@ function FoundationPage() {
     }
   }
 
+  if (identity) return <WorkspacePage identity={identity} csrfToken={csrfToken} onLogout={logout} />;
+
   return (
     <main className="foundation-page">
       <header className="topbar">
         <Link className="wordmark" to="/">WispPay<span> / WORKSPACE</span></Link>
         {identity ? <Button size="small" variant="outlined" onClick={logout} disabled={busy}>Sign out</Button> : <span className="environment-label">SECURE WORKSPACE</span>}
       </header>
-      {identity ? (
-        <section className="intro" aria-labelledby="page-title">
-          <p className="eyebrow">BUSINESS WORKSPACE</p>
-          <h1 id="page-title">{identity.businessName}</h1>
-          <p className="intro-copy">Signed in as {identity.email}. Your workspace is ready for its first client and invoice.</p>
-          <section className="status-panel" aria-labelledby="workspace-title">
-            <h2 id="workspace-title">Workspace</h2>
-            <div className="status-row"><span>Business account</span><strong><i className="status-dot online" />Active</strong></div>
-            <div className="status-row"><span>Invoices</span><strong>None yet</strong></div>
-          </section>
-        </section>
-      ) : (
-        <section className="intro auth-intro" aria-labelledby="page-title">
+      <section className="intro auth-intro" aria-labelledby="page-title">
           <p className="eyebrow">BUSINESS PAYMENTS, IN ONE PLACE</p>
           <h1 id="page-title">{registering ? 'Create your workspace.' : 'Welcome back.'}</h1>
           <p className="intro-copy">{registering ? 'Set up a secure workspace for your business.' : 'Sign in to manage your business workspace.'}</p>
@@ -119,8 +110,7 @@ function FoundationPage() {
               {registering ? 'I already have an account' : 'Create a business workspace'}
             </Button>
           </form>
-        </section>
-      )}
+      </section>
       <footer>WispPay <span>Secure invoicing and payment links</span></footer>
     </main>
   );
@@ -131,7 +121,10 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <BrowserRouter>
-        <Routes><Route path="*" element={<FoundationPage />} /></Routes>
+        <Routes>
+          <Route path="/i/:token" element={<PublicInvoicePage />} />
+          <Route path="*" element={<FoundationPage />} />
+        </Routes>
       </BrowserRouter>
     </ThemeProvider>
   );

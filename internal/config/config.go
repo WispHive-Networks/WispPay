@@ -9,15 +9,21 @@ import (
 	"strconv"
 	"strings"
 
-	mysqldriver "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	Port           string
-	Environment    string
-	DatabaseDSN    string
-	DatabaseCACert string
+	Port                string
+	Environment         string
+	SQLitePath          string
+	PayPalClientID      string
+	PayPalClientSecret  string
+	PayPalBaseURL       string
+	PayPalPartnerID     string
+	PayPalAttributionID string
+	PayPalWebhookID     string
+	PublicBaseURL       string
+	PayPalEnabled       bool
 }
 
 func Load() (Config, error) {
@@ -31,32 +37,16 @@ func Load() (Config, error) {
 		}
 	}
 	cfg := Config{
-		Port:           strings.TrimSpace(os.Getenv("PORT")),
-		Environment:    strings.ToLower(strings.TrimSpace(os.Getenv("APP_ENV"))),
-		DatabaseDSN:    strings.TrimSpace(os.Getenv("DATABASE_URL")),
-		DatabaseCACert: strings.TrimSpace(os.Getenv("DATABASE_CA_CERT")),
-	}
-	if cfg.DatabaseCACert == "" {
-		defaultCACert := filepath.Join("cert", "ca.pem")
-		if info, err := os.Stat(defaultCACert); err == nil && info.Mode().IsRegular() {
-			cfg.DatabaseCACert = defaultCACert
-		} else if err != nil && !os.IsNotExist(err) {
-			return Config{}, fmt.Errorf("check default database CA certificate")
-		}
-	}
-	databaseHost := strings.TrimSpace(os.Getenv("DATABASE_HOST"))
-	if databaseHost != "" {
-		dsn, err := databaseDSNFromParts(databaseHost, os.Getenv("DATABASE_PORT"), os.Getenv("DATABASE_NAME"), os.Getenv("DATABASE_USER"), os.Getenv("DATABASE_PASSWORD"))
-		if err != nil {
-			return Config{}, err
-		}
-		cfg.DatabaseDSN = dsn
-	} else if cfg.DatabaseDSN != "" {
-		dsn, err := NormalizeDatabaseURL(cfg.DatabaseDSN)
-		if err != nil {
-			return Config{}, err
-		}
-		cfg.DatabaseDSN = dsn
+		Port:                strings.TrimSpace(os.Getenv("PORT")),
+		Environment:         strings.ToLower(strings.TrimSpace(os.Getenv("APP_ENV"))),
+		SQLitePath:          strings.TrimSpace(os.Getenv("SQLITE_PATH")),
+		PayPalClientID:      strings.TrimSpace(os.Getenv("PAYPAL_CLIENT_ID")),
+		PayPalClientSecret:  strings.TrimSpace(os.Getenv("PAYPAL_CLIENT_SECRET")),
+		PayPalBaseURL:       strings.TrimRight(strings.TrimSpace(os.Getenv("PAYPAL_BASE_URL")), "/"),
+		PayPalPartnerID:     strings.TrimSpace(os.Getenv("PAYPAL_PARTNER_MERCHANT_ID")),
+		PayPalAttributionID: strings.TrimSpace(os.Getenv("PAYPAL_PARTNER_ATTRIBUTION_ID")),
+		PayPalWebhookID:     strings.TrimSpace(os.Getenv("PAYPAL_WEBHOOK_ID")),
+		PublicBaseURL:       strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL")), "/"),
 	}
 	if cfg.Port == "" {
 		cfg.Port = "18080"
@@ -64,76 +54,49 @@ func Load() (Config, error) {
 	if cfg.Environment == "" {
 		cfg.Environment = "development"
 	}
-	if cfg.Environment == "production" && cfg.DatabaseDSN == "" {
-		return Config{}, fmt.Errorf("production DATABASE_URL is required")
+	if cfg.PublicBaseURL == "" {
+		cfg.PublicBaseURL = "http://localhost:" + cfg.Port
+	}
+	if cfg.SQLitePath == "" {
+		cfg.SQLitePath = filepath.Join("data", "wisppay.db")
 	}
 	port, err := strconv.Atoi(cfg.Port)
 	if err != nil || port < 1 || port > 65535 {
 		return Config{}, fmt.Errorf("PORT must be a valid TCP port")
 	}
-	if cfg.Environment == "production" && cfg.DatabaseDSN != "" {
-		dsn, err := mysqldriver.ParseDSN(cfg.DatabaseDSN)
-		if err != nil {
-			return Config{}, fmt.Errorf("invalid DATABASE_URL")
-		}
-		if dsn.TLSConfig == "" || dsn.TLSConfig == "false" || dsn.TLSConfig == "skip-verify" || dsn.TLSConfig == "preferred" {
-			return Config{}, fmt.Errorf("production DATABASE_URL must enable verified MySQL TLS")
-		}
+	if err := validatePayPalConfig(&cfg); err != nil {
+		return Config{}, err
 	}
 	return cfg, nil
 }
 
-func databaseDSNFromParts(host, port, name, user, password string) (string, error) {
-	port = strings.TrimSpace(port)
-	name = strings.TrimSpace(name)
-	user = strings.TrimSpace(user)
-	if strings.ContainsAny(host, "/?#@ \t\r\n") || name == "" || user == "" || password == "" {
-		return "", fmt.Errorf("DATABASE_HOST, DATABASE_PORT, DATABASE_NAME, DATABASE_USER, and DATABASE_PASSWORD must be configured")
+func validatePayPalConfig(cfg *Config) error {
+	if cfg.PayPalClientID == "" && cfg.PayPalClientSecret == "" {
+		return nil
 	}
-	portNumber, err := strconv.Atoi(port)
-	if err != nil || portNumber < 1 || portNumber > 65535 {
-		return "", fmt.Errorf("DATABASE_PORT must be a valid TCP port")
+	if cfg.PayPalClientID == "" || cfg.PayPalClientSecret == "" {
+		return fmt.Errorf("PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET must be configured together")
 	}
-	config := mysqldriver.NewConfig()
-	config.User = user
-	config.Passwd = password
-	config.Net = "tcp"
-	config.Addr = net.JoinHostPort(host, port)
-	config.DBName = name
-	config.ParseTime = true
-	config.TLSConfig = "true"
-	return config.FormatDSN(), nil
-}
-
-func NormalizeDatabaseURL(value string) (string, error) {
-	parsed, err := url.Parse(value)
-	if err != nil {
-		return "", fmt.Errorf("invalid DATABASE_URL")
+	if cfg.PayPalPartnerID == "" || cfg.PayPalAttributionID == "" {
+		return nil
 	}
-	if parsed.Scheme == "" {
-		return value, nil
+	if cfg.PayPalBaseURL == "" {
+		cfg.PayPalBaseURL = "https://api-m.sandbox.paypal.com"
 	}
-	if parsed.Scheme != "mysql" || parsed.User == nil || parsed.Hostname() == "" || strings.Trim(parsed.Path, "/") == "" {
-		return "", fmt.Errorf("DATABASE_URL must be a MySQL DSN or mysql:// URL")
+	parsed, err := url.Parse(cfg.PayPalBaseURL)
+	if err != nil || parsed.Scheme != "https" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Path != "" || parsed.Port() != "" {
+		return fmt.Errorf("PAYPAL_BASE_URL must be an approved PayPal HTTPS API origin")
 	}
-	if len(parsed.Query()) > 1 || len(parsed.Query()) == 1 && parsed.Query().Get("ssl-mode") == "" {
-		return "", fmt.Errorf("DATABASE_URL contains unsupported MySQL URL options")
+	if parsed.Hostname() != "api-m.sandbox.paypal.com" && parsed.Hostname() != "api-m.paypal.com" {
+		return fmt.Errorf("PAYPAL_BASE_URL must be an approved PayPal HTTPS API origin")
 	}
-	sslMode := strings.ToUpper(parsed.Query().Get("ssl-mode"))
-	if sslMode != "REQUIRED" && sslMode != "VERIFY_CA" && sslMode != "VERIFY_IDENTITY" {
-		return "", fmt.Errorf("MySQL URL ssl-mode must require verified TLS")
+	publicURL, err := url.Parse(cfg.PublicBaseURL)
+	if err != nil || publicURL.Hostname() == "" || publicURL.User != nil || publicURL.RawQuery != "" || publicURL.Fragment != "" || publicURL.Path != "" {
+		return fmt.Errorf("PUBLIC_BASE_URL must be an origin without a path or query when PayPal is enabled")
 	}
-	port := parsed.Port()
-	if port == "" {
-		port = "3306"
+	if publicURL.Scheme != "https" && !(cfg.Environment != "production" && publicURL.Scheme == "http" && (publicURL.Hostname() == "localhost" || net.ParseIP(publicURL.Hostname()) != nil && net.ParseIP(publicURL.Hostname()).IsLoopback())) {
+		return fmt.Errorf("PUBLIC_BASE_URL must use HTTPS, except for local development")
 	}
-	config := mysqldriver.NewConfig()
-	config.User = parsed.User.Username()
-	config.Passwd, _ = parsed.User.Password()
-	config.Net = "tcp"
-	config.Addr = net.JoinHostPort(parsed.Hostname(), port)
-	config.DBName = strings.Trim(parsed.Path, "/")
-	config.ParseTime = true
-	config.TLSConfig = "true"
-	return config.FormatDSN(), nil
+	cfg.PayPalEnabled = true
+	return nil
 }

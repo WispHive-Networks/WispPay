@@ -7,3 +7,19 @@ services:
     envVars:
       - key: APP_ENV
         value: production
+      - key: SQLITE_PATH
+        value: data/wisppay.db
+      - key: PAYPAL_BASE_URL
+        value: https://api-m.sandbox.paypal.com
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_PARTNER_MERCHANT_ID
+        sync: false
+      - key: PAYPAL_PARTNER_ATTRIBUTION_ID
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false

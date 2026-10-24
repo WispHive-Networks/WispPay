@@ -61,6 +61,46 @@ func TestAuthRequiresCSRFAndProvidesBootstrapToken(t *testing.T) {
 	}
 }
 
+func TestWorkspacePrivateRoutesRequireAuthentication(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	handler := New(nil, http.Dir("../../web/dist"), logger)
+	for _, path := range []string{"/api/catalog/categories", "/api/catalog/products", "/api/clients", "/api/invoices"} {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+		if response.Code != http.StatusUnauthorized {
+			t.Errorf("GET %s status = %d, want %d", path, response.Code, http.StatusUnauthorized)
+		}
+	}
+}
+
+func TestPublicInvoiceUnavailableWithoutStoreAndNotCached(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	handler := New(nil, http.Dir("../../web/dist"), logger)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/public/invoices/untrusted-token", nil))
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("public invoice status = %d, want %d", response.Code, http.StatusServiceUnavailable)
+	}
+	if got := response.Header().Get("Cache-Control"); got != "no-store, private" {
+		t.Fatalf("Cache-Control = %q, want no-store, private", got)
+	}
+}
+
+func TestProductInputRejectsInvalidPricesAndMissingAvailability(t *testing.T) {
+	for _, body := range []string{
+		`{"name":"Design","description":"","price":"-1.00","currency":"USD","available":true}`,
+		`{"name":"Design","description":"","price":"1.001","currency":"USD","available":true}`,
+		`{"name":"Design","description":"","price":"1.00","currency":"USD"}`,
+	} {
+		response := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodPost, "/api/catalog/products", strings.NewReader(body))
+		_, valid := decodeProduct(response, request)
+		if valid || response.Code != http.StatusBadRequest {
+			t.Errorf("decodeProduct accepted invalid payload %s (status %d)", body, response.Code)
+		}
+	}
+}
+
 func TestRequestLoggerRedactsPublicInvoiceToken(t *testing.T) {
 	var output bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&output, nil))
@@ -71,5 +111,18 @@ func TestRequestLoggerRedactsPublicInvoiceToken(t *testing.T) {
 	}
 	if !strings.Contains(output.String(), "/i/:token") {
 		t.Fatal("redacted public invoice route was not logged")
+	}
+}
+
+func TestRequestLoggerRedactsPublicInvoiceAPIToken(t *testing.T) {
+	var output bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&output, nil))
+	handler := requestLogger(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}), logger)
+	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/public/invoices/private-bearer-token", nil))
+	if strings.Contains(output.String(), "private-bearer-token") {
+		t.Fatal("public invoice API token was written to request logs")
+	}
+	if !strings.Contains(output.String(), "/api/public/invoices/:token") {
+		t.Fatal("redacted public invoice API route was not logged")
 	}
 }
