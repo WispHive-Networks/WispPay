@@ -83,6 +83,9 @@ out
 # Nuxt.js build / generate output
 .nuxt
 dist
+!web/dist/
+web/dist/*
+!web/dist/index.html
 .output
 
 # Gatsby files
@@ -149,3 +152,7 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Local Go build output
+/tmp/
+/wisppay.exe
