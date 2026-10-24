@@ -20,6 +20,8 @@ type readiness interface {
 
 func New(db readiness, assets http.FileSystem, logger *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
+	identity, _ := db.(identityStore)
+	registerAuthRoutes(mux, identity)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
