@@ -4,8 +4,7 @@ WispPay is a Go-hosted invoicing and payment-link application. The current incre
 
 ## Prerequisites
 
-- Go 1.25 or later
-- Node.js 22 or later and npm
+- Node.js 22.22 or later and npm
 - A MySQL-compatible database for readiness and migrations
 
 Copy `.env.example` to `.env` and set the values in your shell or deployment environment. Configure either `DATABASE_URL` (Go MySQL driver DSN or `mysql://` URI) or all of `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USER`, and `DATABASE_PASSWORD`. TLS certificate verification remains enabled. The app uses `cert/ca.pem` when present; `DATABASE_CA_CERT` may override that CA file path. Keep credentials and certificates out of source control.
