@@ -5,6 +5,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
+.vscode
+.env
+/cert
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
@@ -81,6 +84,9 @@ out
 # Nuxt.js build / generate output
 .nuxt
 dist
+!web/dist/
+web/dist/*
+!web/dist/index.html
 .output
 
 # Gatsby files
@@ -147,3 +153,7 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Local Go build output
+/tmp/
+/wisppay.exe

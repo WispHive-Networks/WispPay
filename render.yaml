@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: wisppay
+    runtime: go
+    buildCommand: cd web && npm ci && npm run build && cd .. && mkdir -p tmp && go build -o ./tmp/wisppay ./cmd/wisppay
+    startCommand: ./tmp/wisppay
+    envVars:
+      - key: APP_ENV
+        value: production
