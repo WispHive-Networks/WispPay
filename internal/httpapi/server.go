@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -22,6 +23,8 @@ func New(db readiness, assets http.FileSystem, logger *slog.Logger) http.Handler
 	mux := http.NewServeMux()
 	identity, _ := db.(identityStore)
 	registerAuthRoutes(mux, identity)
+	workspace, _ := db.(workspaceStore)
+	registerWorkspaceRoutes(mux, workspace, os.Getenv("PUBLIC_BASE_URL"))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
@@ -99,6 +102,8 @@ func requestLogger(next http.Handler, logger *slog.Logger) http.Handler {
 		path := r.URL.Path
 		if strings.HasPrefix(path, "/i/") {
 			path = "/i/:token"
+		} else if strings.HasPrefix(path, "/api/public/invoices/") {
+			path = "/api/public/invoices/:token"
 		}
 		logger.Info("http request", "request_id", requestID, "method", r.Method, "path", path, "duration_ms", time.Since(started).Milliseconds())
 	})
