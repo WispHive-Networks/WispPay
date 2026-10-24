@@ -42,6 +42,25 @@ func TestHealthAndReadiness(t *testing.T) {
 	}
 }
 
+func TestAuthRequiresCSRFAndProvidesBootstrapToken(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	handler := New(nil, http.Dir("../../web/dist"), logger)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/auth/csrf", nil))
+	if response.Code != http.StatusOK || response.Result().Cookies()[0].Name != csrfCookieName {
+		t.Fatalf("CSRF bootstrap status/cookie incorrect: status=%d cookies=%v", response.Code, response.Result().Cookies())
+	}
+
+	response = httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/auth/register", strings.NewReader(`{"businessName":"Example","email":"owner@example.com","password":"long-enough-password"}`))
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("registration without CSRF token status = %d, want %d", response.Code, http.StatusForbidden)
+	}
+}
+
 func TestRequestLoggerRedactsPublicInvoiceToken(t *testing.T) {
 	var output bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&output, nil))
